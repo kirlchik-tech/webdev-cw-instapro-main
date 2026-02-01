@@ -160,3 +160,37 @@ strong {
     height: 32px;
   }
 }
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 30px;
+  padding: 20px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.user-info__image {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.user-info__name {
+  margin: 0;
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.no-posts-message {
+  text-align: center;
+  font-size: 18px;
+  color: #666;
+  padding: 40px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}

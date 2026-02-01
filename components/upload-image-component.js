@@ -13,15 +13,10 @@ export function renderUploadImageComponent({ element, onImageUrlChange }) {
   /**
    * URL текущего изображения.
    * Изначально пуст, пока пользователь не загрузит изображение.
-   * @type {string}
+    @type {string}
    */
   let imageUrl = "";
 
-  /**
-   * Функция рендеринга компонента.
-   * Отображает интерфейс компонента в зависимости от состояния: 
-   * либо форма выбора файла, либо превью загруженного изображения с кнопкой замены.
-   */
   const render = () => {
     element.innerHTML = `
       <div class="upload-image">
@@ -55,7 +50,7 @@ export function renderUploadImageComponent({ element, onImageUrlChange }) {
         const labelEl = document.querySelector(".file-upload-label");
         labelEl.setAttribute("disabled", true);
         labelEl.textContent = "Загружаю файл...";
-        
+
         // Загружаем изображение с помощью API
         uploadImage({ file }).then(({ fileUrl }) => {
           imageUrl = fileUrl; // Сохраняем URL загруженного изображения

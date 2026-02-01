@@ -1,0 +1,61 @@
+.new-post {
+  animation: newPostHighlight 1.5s ease;
+}
+
+@keyframes newPostHighlight {
+  0% {
+    background-color: rgba(52, 199, 89, 0.2);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+/* Анимация для счетчика лайков */
+.likes-updated {
+  animation: likesUpdate 0.5s ease;
+}
+
+@keyframes likesUpdate {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+    color: #ff3b30;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Анимация загрузки изображения */
+.image-loading {
+  position: relative;
+  overflow: hidden;
+}
+
+.image-loading::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}

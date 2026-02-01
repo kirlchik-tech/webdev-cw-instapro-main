@@ -1,4 +1,4 @@
-import { getPosts } from "./api.js";
+import { getPosts, uploadPost } from "./api.js";
 import { renderAddPostPageComponent } from "./components/add-post-page-component.js";
 import { renderAuthPageComponent } from "./components/auth-page-component.js";
 import {
@@ -10,6 +10,7 @@ import {
 } from "./routes.js";
 import { renderPostsPageComponent } from "./components/posts-page-component.js";
 import { renderLoadingPageComponent } from "./components/loading-page-component.js";
+import renderUserPostsPageComponent from "./components/user-posts-page-component.js";
 import {
   getUserFromLocalStorage,
   removeUserFromLocalStorage,
@@ -67,11 +68,19 @@ export const goToPage = (newPage, data) => {
     }
 
     if (newPage === USER_POSTS_PAGE) {
-      // @@TODO: реализовать получение постов юзера из API
-      console.log("Открываю страницу пользователя: ", data.userId);
-      page = USER_POSTS_PAGE;
-      posts = [];
-      return renderApp();
+      page = LOADING_PAGE;
+      renderApp();
+
+      return getPosts({ token: getToken() })
+        .then((allPosts) => {
+          page = USER_POSTS_PAGE;
+          posts = allPosts.filter((post) => post.user.id === data.userId);
+          renderApp();
+        })
+        .catch((error) => {
+          console.error(error);
+          goToPage(POSTS_PAGE);
+        });
     }
 
     page = newPage;
@@ -85,11 +94,18 @@ export const goToPage = (newPage, data) => {
 
 const renderApp = () => {
   const appEl = document.getElementById("app");
+
   if (page === LOADING_PAGE) {
     return renderLoadingPageComponent({
       appEl,
       user,
       goToPage,
+    });
+  }
+
+  if (page === USER_POSTS_PAGE) {
+    return renderUserPostsPageComponent({
+      appEl,
     });
   }
 
@@ -110,9 +126,18 @@ const renderApp = () => {
     return renderAddPostPageComponent({
       appEl,
       onAddPostClick({ description, imageUrl }) {
-        // @TODO: реализовать добавление поста в API
-        console.log("Добавляю пост...", { description, imageUrl });
-        goToPage(POSTS_PAGE);
+        uploadPost({
+          token: getToken(),
+          description,
+          imageUrl,
+        })
+          .then(() => {
+            goToPage(POSTS_PAGE);
+          })
+          .catch((error) => {
+            console.error(error);
+            alert(error.message);
+          });
       },
     });
   }
@@ -121,12 +146,6 @@ const renderApp = () => {
     return renderPostsPageComponent({
       appEl,
     });
-  }
-
-  if (page === USER_POSTS_PAGE) {
-    // @TODO: реализовать страницу с фотографиями отдельного пользвателя
-    appEl.innerHTML = "Здесь будет страница фотографий пользователя";
-    return;
   }
 };
 
