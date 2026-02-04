@@ -185,8 +185,6 @@ export function getUserPosts({ token, userId }) {
 // Поставить лайк
 export function setLike({ token, postId }) {
   const requestUrl = `${postsHost}/${postId}/like`;
-  console.log("[DEBUG setLike] postsHost:", postsHost);
-  console.log("[DEBUG setLike] postId:", postId);
   console.log("[DEBUG setLike] Полный URL запроса:", requestUrl);
 
   return fetch(requestUrl, {
@@ -198,9 +196,13 @@ export function setLike({ token, postId }) {
     if (response.status === 401) {
       throw new Error("Лайкать могут только авторизованные пользователи");
     }
+    if (!response.ok) {
+      throw new Error(`Ошибка сервера: ${response.status}`);
+    }
     return response.json();
   });
 }
+
 // Убрать лайк
 export function removeLike({ token, postId }) {
   return fetch(`${postsHost}/${postId}/dislike`, {
@@ -211,6 +213,9 @@ export function removeLike({ token, postId }) {
   }).then((response) => {
     if (response.status === 401) {
       throw new Error("Лайкать могут только авторизованные пользователи");
+    }
+    if (!response.ok) {
+      throw new Error(`Ошибка сервера: ${response.status}`);
     }
     return response.json();
   });
