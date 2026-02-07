@@ -1,29 +1,8 @@
 import { POSTS_PAGE, USER_POSTS_PAGE } from "../routes.js";
 import { renderHeaderComponent } from "./header-component.js";
 import { posts, goToPage, user } from "../index.js";
-import { setLike, removeLike } from "../api.js";
-
-// Функция форматирования даты
-function formatDate(date) {
-  const now = new Date();
-  const postDate = new Date(date);
-  const diffMs = now - postDate;
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return "только что";
-  if (diffMins < 60) return `${diffMins} минут назад`;
-  if (diffHours < 24) return `${diffHours} часов назад`;
-  if (diffDays === 1) return "вчера";
-  if (diffDays < 7) return `${diffDays} дней назад`;
-
-  return postDate.toLocaleDateString("ru-RU", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
+import { setLike, removeLike, getPosts } from "../api.js";
+import { formatDate } from "../helpers.js";
 
 export default function renderUserPostsPageComponent({ appEl }) {
   const escapeHtml = (str) => {
@@ -33,6 +12,43 @@ export default function renderUserPostsPageComponent({ appEl }) {
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
+  };
+
+  /**
+   * Функция для обновления отдельного поста в массиве posts
+   */
+  const updatePostInList = (postId, updatedPost) => {
+    const postIndex = posts.findIndex((post) => post.id === postId);
+    if (postIndex !== -1) {
+      const userData = posts[postIndex].user;
+      posts[postIndex] = {
+        ...updatedPost.post,
+        user: userData,
+      };
+    }
+  };
+
+  /**
+   * Функция для обновления UI конкретного поста
+   */
+  const updatePostUI = (postId, isLiked, likesCount) => {
+    const likeButton = document.querySelector(
+      `.like-button[data-post-id="${postId}"]`,
+    );
+    const likesText = likeButton
+      ?.closest(".post-likes")
+      ?.querySelector(".post-likes-text");
+
+    if (likeButton) {
+      likeButton.dataset.liked = isLiked;
+      likeButton.querySelector(".like-emoji").textContent = isLiked
+        ? "❤️"
+        : "🤍";
+    }
+
+    if (likesText) {
+      likesText.innerHTML = `Нравится: <strong>${likesCount}</strong>`;
+    }
   };
 
   let postsHtml = "";
@@ -129,6 +145,15 @@ export default function renderUserPostsPageComponent({ appEl }) {
     element: document.querySelector(".header-container"),
   });
 
+  // Клик по имени пользователя для перехода в его профиль
+  for (let userEl of document.querySelectorAll(".post-header")) {
+    userEl.addEventListener("click", () => {
+      goToPage(USER_POSTS_PAGE, {
+        userId: userEl.dataset.userId,
+      });
+    });
+  }
+
   // Обработчики для лайков
   if (posts && posts.length > 0) {
     for (let likeBtn of document.querySelectorAll(".like-button")) {
@@ -141,29 +166,71 @@ export default function renderUserPostsPageComponent({ appEl }) {
         const postId = likeBtn.dataset.postId;
         const isLiked = likeBtn.dataset.liked === "true";
 
-        if (isLiked) {
-          removeLike({ token: `Bearer ${user.token}`, postId })
-            .then(() => {
-              goToPage(USER_POSTS_PAGE, {
-                userId: postUser.id,
-              });
-            })
-            .catch((error) => {
-              console.error(error);
-              alert("Не удалось убрать лайк, попробуйте позже");
-            });
-        } else {
-          setLike({ token: `Bearer ${user.token}`, postId })
-            .then(() => {
-              goToPage(USER_POSTS_PAGE, {
-                userId: postUser.id,
-              });
-            })
-            .catch((error) => {
-              console.error(error);
-              alert("Не удалось поставить лайк, попробуйте позже");
-            });
-        }
+        // Визуальное обновление кнопки сразу
+        const currentLikesCount = parseInt(
+          likeBtn.closest(".post-likes").querySelector("strong").textContent,
+        );
+        const newLikesCount = isLiked
+          ? currentLikesCount - 1
+          : currentLikesCount + 1;
+        updatePostUI(postId, !isLiked, newLikesCount);
+
+        // Отправляем запрос к API
+        const apiCall = isLiked
+          ? removeLike({ token: `Bearer ${user.token}`, postId })
+          : setLike({ token: `Bearer ${user.token}`, postId });
+
+        apiCall
+          .then((response) => {
+            console.log("Ответ от API лайка:", response);
+
+            if (response && response.post) {
+              // Если ответ содержит post объект
+              updatePostInList(postId, response);
+              updatePostUI(
+                postId,
+                response.post.isLiked,
+                response.post.likes.length,
+              );
+            } else if (
+              response &&
+              (response.isLiked !== undefined || response.likes !== undefined)
+            ) {
+              // Если ответ сам является постом
+              updatePostInList(postId, { post: response });
+              updatePostUI(
+                postId,
+                response.isLiked,
+                response.likes ? response.likes.length : 0,
+              );
+            } else {
+              // Fallback: загружаем все посты и ищем нужный
+              console.log("Fallback: загружаем все посты...");
+              return getPosts({ token: `Bearer ${user.token}` }).then(
+                (allPosts) => {
+                  const updatedPost = allPosts.find(
+                    (post) => post.id === postId,
+                  );
+                  if (updatedPost) {
+                    updatePostInList(postId, { post: updatedPost });
+                    updatePostUI(
+                      postId,
+                      updatedPost.isLiked,
+                      updatedPost.likes.length,
+                    );
+                  } else {
+                    throw new Error("Пост не найден после обновления");
+                  }
+                },
+              );
+            }
+          })
+          .catch((error) => {
+            console.error("Ошибка при обработке лайка:", error);
+            // Откатываем визуальные изменения при ошибке
+            updatePostUI(postId, isLiked, currentLikesCount);
+            alert("Что-то пошло не так. Попробуйте еще раз.");
+          });
       });
     }
   }
