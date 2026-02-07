@@ -1,7 +1,7 @@
 import { POSTS_PAGE, USER_POSTS_PAGE } from "../routes.js";
 import { renderHeaderComponent } from "./header-component.js";
 import { posts, goToPage, user } from "../index.js";
-import { setLike, removeLike } from "../api.js";
+import { setLike, removeLike, getPosts } from "../api.js";
 import { formatDate } from "../helpers.js";
 
 export default function renderUserPostsPageComponent({ appEl }) {
@@ -181,68 +181,53 @@ export default function renderUserPostsPageComponent({ appEl }) {
           : setLike({ token: `Bearer ${user.token}`, postId });
 
         apiCall
-          .then(() => {
-            // Используем getUpdatedPost
-            return getUpdatedPost({ token: `Bearer ${user.token}`, postId });
-          })
-          .then((response) => {
-            updatePostInList(postId, response);
-            updatePostUI(
-              postId,
-              response.post.isLiked,
-              response.post.likes.length,
-            );
-          })
-          .catch((error) => {
-            console.error(error);
-            updatePostUI(postId, isLiked, currentLikesCount);
-            alert("Что-то пошло не так. Попробуйте еще раз.");
-          });
-
-        apiCall
           .then((response) => {
             console.log("Ответ от API лайка:", response);
 
             if (response && response.post) {
+              // Если ответ содержит post объект
               updatePostInList(postId, response);
               updatePostUI(
                 postId,
                 response.post.isLiked,
                 response.post.likes.length,
               );
+            } else if (
+              response &&
+              (response.isLiked !== undefined || response.likes !== undefined)
+            ) {
+              // Если ответ сам является постом
+              updatePostInList(postId, { post: response });
+              updatePostUI(
+                postId,
+                response.isLiked,
+                response.likes ? response.likes.length : 0,
+              );
             } else {
-              const postData = response.post || response;
-              if (
-                postData &&
-                (postData.isLiked !== undefined || postData.likes !== undefined)
-              ) {
-                updatePostInList(postId, { post: postData });
-                updatePostUI(
-                  postId,
-                  postData.isLiked,
-                  postData.likes ? postData.likes.length : 0,
-                );
-              } else {
-                return getPosts({ token: `Bearer ${user.token}` }).then(
-                  (allPosts) => {
-                    const updatedPost = allPosts.find(
-                      (post) => post.id === postId,
+              // Fallback: загружаем все посты и ищем нужный
+              console.log("Fallback: загружаем все посты...");
+              return getPosts({ token: `Bearer ${user.token}` }).then(
+                (allPosts) => {
+                  const updatedPost = allPosts.find(
+                    (post) => post.id === postId,
+                  );
+                  if (updatedPost) {
+                    updatePostInList(postId, { post: updatedPost });
+                    updatePostUI(
+                      postId,
+                      updatedPost.isLiked,
+                      updatedPost.likes.length,
                     );
-                    if (updatedPost) {
-                      updatePostInList(postId, { post: updatedPost });
-                      updatePostUI(
-                        postId,
-                        updatedPost.isLiked,
-                        updatedPost.likes.length,
-                      );
-                    }
-                  },
-                );
-              }
+                  } else {
+                    throw new Error("Пост не найден после обновления");
+                  }
+                },
+              );
             }
           })
           .catch((error) => {
-            console.error(error);
+            console.error("Ошибка при обработке лайка:", error);
+            // Откатываем визуальные изменения при ошибке
             updatePostUI(postId, isLiked, currentLikesCount);
             alert("Что-то пошло не так. Попробуйте еще раз.");
           });
